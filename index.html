@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Helios Energy Calendar</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -182,7 +185,6 @@
   }
 
   .day-cell.weekend { background: #fafbff; }
-  .day-cell.weekend .day-num { color: #e63946; }
 
   .day-num {
     font-size: 0.85rem;
@@ -312,11 +314,11 @@
     </svg>
     <div class="topbar-brand-text">
       <span>HELIOS ENERGY</span>
-      <small>Calendar</small>
+      <small>Calendar 2026</small>
     </div>
   </div>
   <div class="nav-controls">
-    <button class="btn btn-nav" onclick="changeYear(-1)" title="Previous year">&#171;</button>
+    <button class="btn btn-nav" onclick="changeYear(-1)" title="Prev year">&#171;</button>
     <button class="btn btn-nav" onclick="changeMonth(-1)">&#8249;</button>
     <div class="month-label" id="currentMonthLabel"></div>
     <button class="btn btn-nav" onclick="changeMonth(1)">&#8250;</button>
@@ -339,13 +341,24 @@
 </div>
 
 <script>
+  // ── FIREBASE INIT (fail-safe) ──────────────────
+  let db = null;
+  try {
+    firebase.initializeApp({
+      apiKey:            "AIzaSyCBCY_5rkm9ihAyjKUxM-mnQqNqDCQM90I",
+      authDomain:        "helios-calendar-99459.firebaseapp.com",
+      projectId:         "helios-calendar-99459",
+      storageBucket:     "helios-calendar-99459.firebasestorage.app",
+      messagingSenderId: "955275437358",
+      appId:             "1:955275437358:web:2b227b97d6971da2b506bf"
+    });
+    db = firebase.firestore();
+  } catch(e) { console.warn('Firebase unavailable, using localStorage', e); }
+
   const MONTHS = ["January","February","March","April","May","June",
                   "July","August","September","October","November","December"];
   const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
-  let currentYear  = new Date().getFullYear();
-
-  // Colors cycling per line (index 0 = red, 1 = blue, etc.)
+  // Colors assigned per project name (same name = always same color)
   const LINE_COLORS = [
     '#e63946', // red
     '#4361ee', // blue
@@ -356,6 +369,17 @@
     '#e76f51', // coral
     '#0096c7', // cyan
   ];
+
+  // Hash a project name to a consistent color
+  function nameToColor(name) {
+    const key = name.trim().toLowerCase();
+    if (!key) return '#888';
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = (hash * 31 + key.charCodeAt(i)) & 0xffffffff;
+    }
+    return LINE_COLORS[Math.abs(hash) % LINE_COLORS.length];
+  }
 
   // ── 2026 PUBLIC HOLIDAYS (month 0-based, day) ──
   // Includes US federal holidays + common Canadian holidays
@@ -375,26 +399,48 @@
     11: { 25: "Christmas Day", 26: "Boxing Day" }
   };
 
+  let currentYear  = new Date().getFullYear();
   let currentMonth = new Date().getMonth();
   const today = new Date();
 
-  // ── STORAGE ──────────────────────────────────
-  function storageKey(year, month, day) {
-    return `helios_cal_${year}_${month}_${day}`;
+  // ── FIREBASE STORAGE ─────────────────────────
+  function docId(year, month, day) {
+    return `${year}_${month}_${day}`;
   }
 
   function saveNote(year, month, day, lines) {
-    localStorage.setItem(storageKey(year, month, day), JSON.stringify(lines));
+    if (db) {
+      db.collection('calendar').doc(docId(year, month, day)).set({ lines });
+    } else {
+      localStorage.setItem(docId(year, month, day), JSON.stringify(lines));
+    }
     const el = document.getElementById('saveStatus');
     el.textContent = 'Saved ✓';
     clearTimeout(el._t);
     el._t = setTimeout(() => el.textContent = '', 1500);
   }
 
-  function loadNote(year, month, day) {
-    const raw = localStorage.getItem(storageKey(year, month, day));
-    if (!raw) return [];
-    try { return JSON.parse(raw); } catch { return raw.split('\n'); }
+  async function loadNote(year, month, day) {
+    try {
+      if (db) {
+        const doc = await db.collection('calendar').doc(docId(year, month, day)).get();
+        return doc.exists ? (doc.data().lines || []) : [];
+      } else {
+        const raw = localStorage.getItem(docId(year, month, day));
+        return raw ? JSON.parse(raw) : [];
+      }
+    } catch { return []; }
+  }
+
+  // ── COLOR BY PROJECT NAME ─────────────────────
+  function nameToColor(name) {
+    const key = (name || '').trim().toLowerCase();
+    if (!key) return '#999';
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = (hash * 31 + key.charCodeAt(i)) & 0xffffffff;
+    }
+    return LINE_COLORS[Math.abs(hash) % LINE_COLORS.length];
   }
 
   // ── COLORED LINE EDITOR ───────────────────────
@@ -404,41 +450,37 @@
     editor.contentEditable = true;
     editor.spellcheck = true;
 
-    const lines = loadNote(currentYear, month, day);
-    if (lines.length === 0) {
-      // start with one empty line
-      const l = document.createElement('div');
-      l.className = 'line';
-      l.style.color = LINE_COLORS[0];
-      l.innerHTML = '<br>';
-      editor.appendChild(l);
-    } else {
-      lines.forEach((text, i) => {
+    // Load from Firebase asynchronously
+    loadNote(currentYear, month, day).then(lines => {
+      editor.innerHTML = '';
+      if (lines.length === 0) {
         const l = document.createElement('div');
         l.className = 'line';
-        l.style.color = LINE_COLORS[i % LINE_COLORS.length];
-        l.textContent = text || '';
-        if (!text) l.innerHTML = '<br>';
+        l.style.color = '#999';
+        l.innerHTML = '<br>';
         editor.appendChild(l);
-      });
-    }
-
-    // Recolor all lines and save on any change
-    editor.addEventListener('input', () => {
-      recolorLines(editor);
-      const text = Array.from(editor.querySelectorAll('.line')).map(l => l.textContent);
-      saveNote(currentYear, month, day, text);
-    });
-
-    // On Enter, the browser creates a new div — we need to tag it
-    editor.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        // Let browser handle the newline, then recolor
-        setTimeout(() => recolorLines(editor), 0);
+      } else {
+        lines.forEach(text => {
+          const l = document.createElement('div');
+          l.className = 'line';
+          l.style.color = nameToColor(text);
+          l.textContent = text || '';
+          if (!text) l.innerHTML = '<br>';
+          editor.appendChild(l);
+        });
       }
     });
 
-    // Ensure pasted text is plain
+    editor.addEventListener('input', () => {
+      recolorLines(editor);
+      const lines = Array.from(editor.children).map(l => l.textContent);
+      saveNote(currentYear, month, day, lines);
+    });
+
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') setTimeout(() => recolorLines(editor), 0);
+    });
+
     editor.addEventListener('paste', (e) => {
       e.preventDefault();
       const text = e.clipboardData.getData('text/plain');
@@ -449,17 +491,9 @@
   }
 
   function recolorLines(editor) {
-    const lines = editor.querySelectorAll('.line');
-    lines.forEach((line, i) => {
-      line.style.color = LINE_COLORS[i % LINE_COLORS.length];
-      line.classList.add('line');
-    });
-    // Also handle any bare divs the browser may have created
-    Array.from(editor.children).forEach((child, i) => {
-      if (!child.classList.contains('line')) {
-        child.classList.add('line');
-      }
-      child.style.color = LINE_COLORS[i % LINE_COLORS.length];
+    Array.from(editor.children).forEach(child => {
+      child.classList.add('line');
+      child.style.color = nameToColor(child.textContent);
     });
   }
 
@@ -473,7 +507,6 @@
 
     document.getElementById('monthTitle').textContent = `${MONTHS[month]} ${currentYear}`;
     document.getElementById('currentMonthLabel').textContent = `${MONTHS[month]} ${currentYear}`;
-    document.title = `Helios Energy Calendar — ${currentYear}`;
 
     const grid = document.getElementById('calendarGrid');
     grid.innerHTML = '';
@@ -558,7 +591,7 @@
   function changeMonth(dir) {
     let m = currentMonth + dir;
     if (m < 0)  { currentYear--; m = 11; }
-    if (m > 11) { currentYear++; m = 0;  }
+    if (m > 11) { currentYear++; m = 0; }
     render(m);
   }
 
@@ -568,7 +601,7 @@
   }
 
   function goToToday() {
-    currentYear  = today.getFullYear();
+    currentYear = today.getFullYear();
     render(today.getMonth());
   }
 
@@ -576,7 +609,6 @@
   function exportPDF() {
     const monthName = MONTHS[currentMonth];
     const btn = document.querySelector('.btn-pdf');
-
     btn.textContent = '⏳ Generating…';
     btn.disabled = true;
 
@@ -607,55 +639,3 @@
         const url  = URL.createObjectURL(blob);
         const img  = new Image();
         img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 80; canvas.height = 80;
-          canvas.getContext('2d').drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-          resolve(canvas.toDataURL('image/png'));
-        };
-        img.src = url;
-      });
-    }
-
-    svgToDataURL().then(logoDataURL => {
-    // Inject logo header at top of wrapper
-    const logoHeader = document.createElement('div');
-    logoHeader.className = 'pdf-logo-header';
-    logoHeader.innerHTML = `
-      <div class="brand">
-        <img src="${logoDataURL}" style="width:36px;height:36px;" />
-        <div class="brand-text">
-          <span>HELIOS ENERGY</span>
-          <small>Calendar ${currentYear}</small>
-        </div>
-      </div>
-      <div class="month-label-pdf">${monthName} ${currentYear}</div>
-    `;
-    wrapper.insertBefore(logoHeader, wrapper.firstChild);
-
-    setTimeout(() => {
-      const opt = {
-        margin:      [4, 4, 4, 4],
-        filename:    `Calendar_${monthName}_${currentYear}.pdf`,
-        image:       { type: 'jpeg', quality: 0.97 },
-        html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: wrapper.scrollWidth },
-        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'landscape' },
-        pagebreak:   { mode: 'avoid-all' }
-      };
-
-      html2pdf().set(opt).from(wrapper).save().then(() => {
-        wrapper.removeChild(logoHeader);
-        document.body.classList.remove('pdf-mode');
-        btn.textContent = '⬇ Save as PDF';
-        btn.disabled = false;
-      });
-    }, 200);
-    }); // end svgToDataURL
-  }
-
-  // ── INIT ─────────────────────────────────────
-  buildPills();
-  render(currentMonth);
-</script>
-</body>
-</html>
