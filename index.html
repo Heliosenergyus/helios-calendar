@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Helios Energy Calendar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a2e;
+    min-height: 100vh;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: #1a1a2e;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .topbar-brand svg {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+  }
+  .topbar-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .topbar-brand-text span {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #f5a623;
+  }
+  .topbar-brand-text small {
+    font-size: 0.65rem;
+    color: #aab;
+    letter-spacing: 0.5px;
+    font-weight: 400;
+  }
+
+  .nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .month-label {
+    font-size: 1.1rem;
+    font-weight: 600;
+    min-width: 160px;
+    text-align: center;
+  }
+
+  .btn {
+    padding: 7px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+
+  .btn-nav {
+    background: #2d2d4e;
+    color: #fff;
+    padding: 7px 14px;
+    font-size: 1rem;
+  }
+  .btn-nav:hover { background: #3d3d6e; }
+
+  .btn-pdf {
+    background: #e63946;
+    color: #fff;
+  }
+  .btn-pdf:hover { background: #c1121f; }
+
+  .btn-today {
+    background: #4361ee;
+    color: #fff;
+  }
+  .btn-today:hover { background: #3651d4; }
+
+  /* ── YEAR OVERVIEW ── */
+  .year-nav {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 24px;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    flex-wrap: wrap;
+  }
+
+  .month-pill {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1.5px solid #d0d0e0;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #444;
+    transition: all 0.15s;
+  }
+  .month-pill:hover { border-color: #4361ee; color: #4361ee; }
+  .month-pill.active { background: #4361ee; color: #fff; border-color: #4361ee; }
+
+  /* ── CALENDAR GRID ── */
+  .calendar-wrapper {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0;
+    border: 2px solid #1a1a2e;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+
+  .day-header {
+    background: #1a1a2e;
+    color: #fff;
+    text-align: center;
+    padding: 10px 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .day-cell {
+    border-right: 1px solid #e0e3ea;
+    border-bottom: 1px solid #e0e3ea;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: #fff;
+    transition: background 0.1s;
+  }
+  .day-cell:nth-child(7n) { border-right: none; }
+
+  .day-cell.empty {
+    background: #f8f9fc;
+  }
+
+  .day-cell.today .day-num {
+    background: #4361ee;
+    color: #fff;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .day-cell.weekend { background: #fafbff; }
+  .day-cell.weekend .day-num { color: #e63946; }
+
+  .day-num {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    padding: 8px 10px 4px;
+    line-height: 1;
+    user-select: none;
+    display: inline-block;
+  }
+
+  .day-cell.other-month .day-num {
+    color: #c8c8d8;
+  }
+  .day-cell.other-month { background: #f8f9fc; }
+
+  /* ── COLORED LINES EDITOR ── */
+  .day-editor {
+    flex: 1;
+    padding: 4px 8px 8px;
+    outline: none;
+    font-size: 0.78rem;
+    font-family: inherit;
+    line-height: 1.6;
+    overflow-y: auto;
+    cursor: text;
+    min-height: 0;
+  }
+  .day-editor:empty::before {
+    content: 'Add plan…';
+    color: #c0c0d0;
+    font-style: italic;
+    pointer-events: none;
+  }
+  .day-editor:focus { background: #f0f4ff; border-radius: 0 0 4px 4px; }
+  .day-editor .line { display: block; min-height: 1.6em; white-space: pre-wrap; word-break: break-word; font-weight: 700; }
+
+  .day-cell.other-month .day-editor { display: none; }
+
+  /* ── HOLIDAY LABEL ── */
+  .holiday-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #e63946;
+    padding: 0 10px 2px;
+    line-height: 1.2;
+    user-select: none;
+  }
+
+  .day-num.holiday { color: #e63946 !important; }
+
+  /* ── MONTH TITLE BAR ── */
+  .month-title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .month-title-bar h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1a1a2e;
+  }
+  .save-status {
+    font-size: 0.75rem;
+    color: #aaa;
+    font-style: italic;
+  }
+
+  /* ── PRINT / PDF ── */
+  @media print {
+    .topbar, .year-nav, .month-title-bar .save-status { display: none !important; }
+    body { background: #fff; }
+    .calendar-wrapper { padding: 0; max-width: 100%; }
+    .day-cell { min-height: 80px; }
+    .day-editor { font-size: 0.65rem; }
+  }
+
+  /* Applied during PDF export for tight single-page fit */
+  body.pdf-mode { background: #fff; }
+  body.pdf-mode .calendar-wrapper { padding: 4px 8px; max-width: 100%; }
+  body.pdf-mode .month-title-bar { margin-bottom: 4px; }
+  body.pdf-mode .month-title-bar h2 { font-size: 1rem; }
+  body.pdf-mode .day-cell { min-height: 70px; }
+  body.pdf-mode .day-header { padding: 5px 0; font-size: 0.65rem; }
+  body.pdf-mode .day-num { font-size: 0.7rem; padding: 4px 6px 2px; }
+  body.pdf-mode .day-editor { font-size: 0.6rem; padding: 2px 5px 4px; line-height: 1.4; }
+  body.pdf-mode .holiday-label { font-size: 0.5rem; padding: 0 6px 1px; }
+
+  /* PDF logo header (injected temporarily during export) */
+  .pdf-logo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #1a1a2e;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 6px;
+  }
+  .pdf-logo-header .brand { display: flex; align-items: center; gap: 8px; }
+  .pdf-logo-header svg { width: 32px; height: 32px; }
+  .pdf-logo-header .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+  .pdf-logo-header .brand-text span { font-size: 0.95rem; font-weight: 700; color: #f5a623; letter-spacing: 1px; }
+  .pdf-logo-header .brand-text small { font-size: 0.6rem; color: #aab; }
+  .pdf-logo-header .month-label-pdf { font-size: 1rem; font-weight: 700; color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+      <g fill="#f5a623">
+        <rect x="37" y="2" width="6" height="14" rx="3"></rect>
+        <rect x="37" y="64" width="6" height="14" rx="3"></rect>
+        <rect x="2" y="37" width="14" height="6" rx="3"></rect>
+        <rect x="64" y="37" width="14" height="6" rx="3"></rect>
+        <rect x="14" y="10" width="6" height="14" rx="3" transform="rotate(-45 17 17)"></rect>
+        <rect x="60" y="10" width="6" height="14" rx="3" transform="rotate(45 63 17)"></rect>
+        <rect x="14" y="56" width="6" height="14" rx="3" transform="rotate(45 17 63)"></rect>
+        <rect x="60" y="56" width="6" height="14" rx="3" transform="rotate(-45 63 63)"></rect>
+      </g>
+      <circle cx="40" cy="40" r="20" fill="#f5a623"></circle>
+      <circle cx="40" cy="40" r="14" fill="#f0c040"></circle>
+    </svg>
+    <div class="topbar-brand-text">
+      <span>HELIOS ENERGY</span>
+      <small>Calendar</small>
+    </div>
+  </div>
+  <div class="nav-controls">
+    <button class="btn btn-nav" onclick="changeYear(-1)" title="Previous year">&#171;</button>
+    <button class="btn btn-nav" onclick="changeMonth(-1)">&#8249;</button>
+    <div class="month-label" id="currentMonthLabel"></div>
+    <button class="btn btn-nav" onclick="changeMonth(1)">&#8250;</button>
+    <button class="btn btn-nav" onclick="changeYear(1)" title="Next year">&#187;</button>
+    <button class="btn btn-today" onclick="goToToday()">Today</button>
+    <button class="btn btn-pdf" onclick="exportPDF()">⬇ Save as PDF</button>
+  </div>
+</div>
+
+<!-- MONTH PILLS -->
+<div class="year-nav" id="monthPills"></div>
+
+<!-- CALENDAR -->
+<div class="calendar-wrapper">
+  <div class="month-title-bar">
+    <h2 id="monthTitle"></h2>
+    <span class="save-status" id="saveStatus"></span>
+  </div>
+  <div class="calendar-grid" id="calendarGrid"></div>
+</div>
+
+<script>
+  const MONTHS = ["January","February","March","April","May","June",
+                  "July","August","September","October","November","December"];
+  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  let currentYear  = new Date().getFullYear();
+
+  // Colors cycling per line (index 0 = red, 1 = blue, etc.)
+  const LINE_COLORS = [
+    '#e63946', // red
+    '#4361ee', // blue
+    '#2a9d8f', // teal
+    '#f4a261', // orange
+    '#8338ec', // purple
+    '#06b87a', // green
+    '#e76f51', // coral
+    '#0096c7', // cyan
+  ];
+
+  // ── 2026 PUBLIC HOLIDAYS (month 0-based, day) ──
+  // Includes US federal holidays + common Canadian holidays
+  const HOLIDAYS = {
+    // [month]: { day: 'Name' }
+    0:  { 1: "New Year's Day" },
+    1:  { 16: "Family Day (BC/AB/ON/SK)" },
+    2:  {},
+    3:  { 3: "Good Friday", 6: "Easter Monday" },
+    4:  { 18: "Victoria Day" },
+    5:  {},
+    6:  { 1: "Canada Day", 4: "Independence Day (US)" },
+    7:  { 3: "Civic Holiday (AB/BC/ON)" },
+    8:  { 7: "Labour Day" },
+    9:  { 12: "Thanksgiving (Canada)", 12: "Columbus Day (US)" },
+    10: { 11: "Remembrance Day / Veterans Day" },
+    11: { 25: "Christmas Day", 26: "Boxing Day" }
+  };
+
+  let currentMonth = new Date().getMonth();
+  const today = new Date();
+
+  // ── STORAGE ──────────────────────────────────
+  function storageKey(year, month, day) {
+    return `helios_cal_${year}_${month}_${day}`;
+  }
+
+  function saveNote(year, month, day, lines) {
+    localStorage.setItem(storageKey(year, month, day), JSON.stringify(lines));
+    const el = document.getElementById('saveStatus');
+    el.textContent = 'Saved ✓';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.textContent = '', 1500);
+  }
+
+  function loadNote(year, month, day) {
+    const raw = localStorage.getItem(storageKey(year, month, day));
+    if (!raw) return [];
+    try { return JSON.parse(raw); } catch { return raw.split('\n'); }
+  }
+
+  // ── COLORED LINE EDITOR ───────────────────────
+  function buildEditor(month, day) {
+    const editor = document.createElement('div');
+    editor.className = 'day-editor';
+    editor.contentEditable = true;
+    editor.spellcheck = true;
+
+    const lines = loadNote(currentYear, month, day);
+    if (lines.length === 0) {
+      // start with one empty line
+      const l = document.createElement('div');
+      l.className = 'line';
+      l.style.color = LINE_COLORS[0];
+      l.innerHTML = '<br>';
+      editor.appendChild(l);
+    } else {
+      lines.forEach((text, i) => {
+        const l = document.createElement('div');
+        l.className = 'line';
+        l.style.color = LINE_COLORS[i % LINE_COLORS.length];
+        l.textContent = text || '';
+        if (!text) l.innerHTML = '<br>';
+        editor.appendChild(l);
+      });
+    }
+
+    // Recolor all lines and save on any change
+    editor.addEventListener('input', () => {
+      recolorLines(editor);
+      const text = Array.from(editor.querySelectorAll('.line')).map(l => l.textContent);
+      saveNote(currentYear, month, day, text);
+    });
+
+    // On Enter, the browser creates a new div — we need to tag it
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        // Let browser handle the newline, then recolor
+        setTimeout(() => recolorLines(editor), 0);
+      }
+    });
+
+    // Ensure pasted text is plain
+    editor.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = e.clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+
+    return editor;
+  }
+
+  function recolorLines(editor) {
+    const lines = editor.querySelectorAll('.line');
+    lines.forEach((line, i) => {
+      line.style.color = LINE_COLORS[i % LINE_COLORS.length];
+      line.classList.add('line');
+    });
+    // Also handle any bare divs the browser may have created
+    Array.from(editor.children).forEach((child, i) => {
+      if (!child.classList.contains('line')) {
+        child.classList.add('line');
+      }
+      child.style.color = LINE_COLORS[i % LINE_COLORS.length];
+    });
+  }
+
+  // ── RENDER ───────────────────────────────────
+  function render(month) {
+    currentMonth = month;
+
+    document.querySelectorAll('.month-pill').forEach((p, i) => {
+      p.classList.toggle('active', i === month);
+    });
+
+    document.getElementById('monthTitle').textContent = `${MONTHS[month]} ${currentYear}`;
+    document.getElementById('currentMonthLabel').textContent = `${MONTHS[month]} ${currentYear}`;
+    document.title = `Helios Energy Calendar — ${currentYear}`;
+
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+
+    DAYS.forEach(d => {
+      const h = document.createElement('div');
+      h.className = 'day-header';
+      h.textContent = d;
+      grid.appendChild(h);
+    });
+
+    const firstDay    = new Date(currentYear, month, 1).getDay();
+    const daysInMonth = new Date(currentYear, month + 1, 0).getDate();
+    const daysInPrev  = new Date(currentYear, month, 0).getDate();
+    const monthHolidays = HOLIDAYS[month] || {};
+
+    // Leading other-month cells
+    for (let i = 0; i < firstDay; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'day-cell other-month';
+      const num = document.createElement('span');
+      num.className = 'day-num';
+      num.textContent = daysInPrev - firstDay + 1 + i;
+      cell.appendChild(num);
+      grid.appendChild(cell);
+    }
+
+    // Current month days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayOfWeek = (firstDay + d - 1) % 7;
+      const isToday   = (today.getFullYear() === currentYear && today.getMonth() === month && today.getDate() === d);
+      const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+      const holidayName = monthHolidays[d];
+
+      const cell = document.createElement('div');
+      cell.className = 'day-cell' + (isToday ? ' today' : '') + (isWeekend ? ' weekend' : '');
+
+      const num = document.createElement('span');
+      num.className = 'day-num' + (holidayName ? ' holiday' : '');
+      num.textContent = d;
+      cell.appendChild(num);
+
+      // Holiday name label
+      if (holidayName) {
+        const hl = document.createElement('div');
+        hl.className = 'holiday-label';
+        hl.textContent = holidayName;
+        cell.appendChild(hl);
+      }
+
+      cell.appendChild(buildEditor(month, d));
+      grid.appendChild(cell);
+    }
+
+    // Trailing cells
+    const total    = firstDay + daysInMonth;
+    const trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
+    for (let i = 1; i <= trailing; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'day-cell other-month';
+      const num = document.createElement('span');
+      num.className = 'day-num';
+      num.textContent = i;
+      cell.appendChild(num);
+      grid.appendChild(cell);
+    }
+  }
+
+  // ── MONTH PILLS ──────────────────────────────
+  function buildPills() {
+    const container = document.getElementById('monthPills');
+    MONTHS.forEach((m, i) => {
+      const pill = document.createElement('button');
+      pill.className = 'month-pill';
+      pill.textContent = m;
+      pill.onclick = () => render(i);
+      container.appendChild(pill);
+    });
+  }
+
+  // ── NAVIGATION ───────────────────────────────
+  function changeMonth(dir) {
+    let m = currentMonth + dir;
+    if (m < 0)  { currentYear--; m = 11; }
+    if (m > 11) { currentYear++; m = 0;  }
+    render(m);
+  }
+
+  function changeYear(dir) {
+    currentYear += dir;
+    render(currentMonth);
+  }
+
+  function goToToday() {
+    currentYear  = today.getFullYear();
+    render(today.getMonth());
+  }
+
+  // ── PDF EXPORT ───────────────────────────────
+  function exportPDF() {
+    const monthName = MONTHS[currentMonth];
+    const btn = document.querySelector('.btn-pdf');
+
+    btn.textContent = '⏳ Generating…';
+    btn.disabled = true;
+
+    // Switch to compact mode
+    document.body.classList.add('pdf-mode');
+
+    // Build a temporary wrapper with logo + calendar
+    const wrapper = document.querySelector('.calendar-wrapper');
+
+    // Pre-render SVG logo to a PNG data URL so html2canvas picks it up
+    function svgToDataURL() {
+      return new Promise(resolve => {
+        const svgStr = `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+          <g fill="#f5a623">
+            <rect x="37" y="2" width="6" height="14" rx="3"/>
+            <rect x="37" y="64" width="6" height="14" rx="3"/>
+            <rect x="2" y="37" width="14" height="6" rx="3"/>
+            <rect x="64" y="37" width="14" height="6" rx="3"/>
+            <rect x="14" y="10" width="6" height="14" rx="3" transform="rotate(-45 17 17)"/>
+            <rect x="60" y="10" width="6" height="14" rx="3" transform="rotate(45 63 17)"/>
+            <rect x="14" y="56" width="6" height="14" rx="3" transform="rotate(45 17 63)"/>
+            <rect x="60" y="56" width="6" height="14" rx="3" transform="rotate(-45 63 63)"/>
+          </g>
+          <circle cx="40" cy="40" r="20" fill="#f5a623"/>
+          <circle cx="40" cy="40" r="14" fill="#f0c040"/>
+        </svg>`;
+        const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+        const url  = URL.createObjectURL(blob);
+        const img  = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 80; canvas.height = 80;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.src = url;
+      });
+    }
+
+    svgToDataURL().then(logoDataURL => {
+    // Inject logo header at top of wrapper
+    const logoHeader = document.createElement('div');
+    logoHeader.className = 'pdf-logo-header';
+    logoHeader.innerHTML = `
+      <div class="brand">
+        <img src="${logoDataURL}" style="width:36px;height:36px;" />
+        <div class="brand-text">
+          <span>HELIOS ENERGY</span>
+          <small>Calendar ${currentYear}</small>
+        </div>
+      </div>
+      <div class="month-label-pdf">${monthName} ${currentYear}</div>
+    `;
+    wrapper.insertBefore(logoHeader, wrapper.firstChild);
+
+    setTimeout(() => {
+      const opt = {
+        margin:      [4, 4, 4, 4],
+        filename:    `Calendar_${monthName}_${currentYear}.pdf`,
+        image:       { type: 'jpeg', quality: 0.97 },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: wrapper.scrollWidth },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak:   { mode: 'avoid-all' }
+      };
+
+      html2pdf().set(opt).from(wrapper).save().then(() => {
+        wrapper.removeChild(logoHeader);
+        document.body.classList.remove('pdf-mode');
+        btn.textContent = '⬇ Save as PDF';
+        btn.disabled = false;
+      });
+    }, 200);
+    }); // end svgToDataURL
+  }
+
+  // ── INIT ─────────────────────────────────────
+  buildPills();
+  render(currentMonth);
+</script>
+</body>
+</html>
