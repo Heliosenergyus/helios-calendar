@@ -5,637 +5,316 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Helios Energy Calendar</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
 
-  body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background: #f0f2f5;
-    color: #1a1a2e;
-    min-height: 100vh;
-  }
+.topbar { background: #1a1a2e; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.3); gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.brand svg { width: 36px; height: 36px; }
+.brand-name { font-size: 1rem; font-weight: 700; color: #f5a623; letter-spacing: 0.5px; }
+.brand-sub  { font-size: 0.6rem; color: #aab; letter-spacing: 0.5px; }
+.nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.btn { border: none; border-radius: 6px; cursor: pointer; font-weight: 600; padding: 7px 13px; font-size: 0.82rem; }
+.btn-nav   { background: #2d2d4e; color: #fff; }
+.btn-today { background: #4361ee; color: #fff; }
+.btn-pdf   { background: #e63946; color: #fff; }
+.month-lbl { font-size: 1rem; font-weight: 700; min-width: 155px; text-align: center; color: #fff; }
 
-  /* ── TOP BAR ── */
-  .topbar {
-    background: #1a1a2e;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 24px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  }
+.pills-bar { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; padding: 10px 16px; background: #fff; border-bottom: 1px solid #e0e0e0; }
+.pill { padding: 4px 13px; border-radius: 20px; border: 1.5px solid #d0d0e0; background: #fff; cursor: pointer; font-size: 0.75rem; font-weight: 600; color: #555; }
+.pill.active { background: #4361ee; color: #fff; border-color: #4361ee; }
 
-  .topbar-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .topbar-brand svg {
-    width: 38px;
-    height: 38px;
-    flex-shrink: 0;
-  }
-  .topbar-brand-text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.1;
-  }
-  .topbar-brand-text span {
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: #f5a623;
-  }
-  .topbar-brand-text small {
-    font-size: 0.65rem;
-    color: #aab;
-    letter-spacing: 0.5px;
-    font-weight: 400;
-  }
+.cal-wrap { padding: 20px; max-width: 1400px; margin: 0 auto; }
+.month-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.month-bar h2 { font-size: 1.5rem; font-weight: 700; color: #1a1a2e; }
+.save-badge { font-size: 0.72rem; color: #aaa; font-style: italic; }
 
-  .nav-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); border: 2px solid #1a1a2e; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.07); }
+.day-hdr { background: #1a1a2e; color: #fff; text-align: center; padding: 9px 0; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
 
-  .month-label {
-    font-size: 1.1rem;
-    font-weight: 600;
-    min-width: 160px;
-    text-align: center;
-  }
+.day { border-right: 1px solid #e0e3ea; border-bottom: 1px solid #e0e3ea; min-height: 130px; display: flex; flex-direction: column; background: #fff; }
+.day:nth-child(7n) { border-right: none; }
+.day.other  { background: #f8f9fc; }
+.day.wkend  { background: #fafbff; }
+.day.itoday .dnum { background: #4361ee; color: #fff !important; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; }
 
-  .btn {
-    padding: 7px 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 600;
-    transition: all 0.15s;
-  }
+.dnum { font-size: 0.82rem; font-weight: 700; color: #1a1a2e; padding: 7px 9px 3px; display: inline-block; line-height: 1; user-select: none; }
+.dnum.red  { color: #e63946 !important; }
+.dnum.gray { color: #c8c8d8; }
 
-  .btn-nav {
-    background: #2d2d4e;
-    color: #fff;
-    padding: 7px 14px;
-    font-size: 1rem;
-  }
-  .btn-nav:hover { background: #3d3d6e; }
+.hday-lbl { font-size: 0.58rem; font-weight: 600; color: #e63946; padding: 0 9px 2px; user-select: none; }
 
-  .btn-pdf {
-    background: #e63946;
-    color: #fff;
-  }
-  .btn-pdf:hover { background: #c1121f; }
+.editor { flex: 1; padding: 3px 8px 8px; outline: none; font-size: 0.78rem; font-family: inherit; line-height: 1.6; overflow-y: auto; cursor: text; font-weight: 700; }
+.editor:empty::before { content: 'Add plan...'; color: #c8c8d8; font-style: italic; font-weight: 400; }
+.editor:focus { background: #f4f7ff; }
+.editor div { min-height: 1.6em; white-space: pre-wrap; word-break: break-word; }
+.day.other .editor { display: none; }
 
-  .btn-today {
-    background: #4361ee;
-    color: #fff;
-  }
-  .btn-today:hover { background: #3651d4; }
+.pdf-hdr { display: flex; align-items: center; justify-content: space-between; background: #1a1a2e; padding: 8px 14px; border-radius: 8px 8px 0 0; margin-bottom: 6px; }
+.pdf-hdr .pb { display: flex; align-items: center; gap: 8px; }
+.pdf-hdr img { width: 34px; height: 34px; }
+.pdf-hdr .pt { display: flex; flex-direction: column; line-height: 1.2; }
+.pdf-hdr .pt span { font-size: 0.9rem; font-weight: 700; color: #f5a623; letter-spacing: 1px; }
+.pdf-hdr .pt small { font-size: 0.58rem; color: #aab; }
+.pdf-hdr .pm { font-size: 1rem; font-weight: 700; color: #fff; }
 
-  /* ── YEAR OVERVIEW ── */
-  .year-nav {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    padding: 14px 24px;
-    background: #fff;
-    border-bottom: 1px solid #e0e0e0;
-    flex-wrap: wrap;
-  }
-
-  .month-pill {
-    padding: 5px 14px;
-    border-radius: 20px;
-    border: 1.5px solid #d0d0e0;
-    background: #fff;
-    cursor: pointer;
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: #444;
-    transition: all 0.15s;
-  }
-  .month-pill:hover { border-color: #4361ee; color: #4361ee; }
-  .month-pill.active { background: #4361ee; color: #fff; border-color: #4361ee; }
-
-  /* ── CALENDAR GRID ── */
-  .calendar-wrapper {
-    padding: 24px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  .calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 0;
-    border: 2px solid #1a1a2e;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #fff;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  }
-
-  .day-header {
-    background: #1a1a2e;
-    color: #fff;
-    text-align: center;
-    padding: 10px 0;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-  }
-
-  .day-cell {
-    border-right: 1px solid #e0e3ea;
-    border-bottom: 1px solid #e0e3ea;
-    min-height: 130px;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    background: #fff;
-    transition: background 0.1s;
-  }
-  .day-cell:nth-child(7n) { border-right: none; }
-
-  .day-cell.empty {
-    background: #f8f9fc;
-  }
-
-  .day-cell.today .day-num {
-    background: #4361ee;
-    color: #fff;
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .day-cell.weekend { background: #fafbff; }
-
-  .day-num {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #1a1a2e;
-    padding: 8px 10px 4px;
-    line-height: 1;
-    user-select: none;
-    display: inline-block;
-  }
-
-  .day-cell.other-month .day-num {
-    color: #c8c8d8;
-  }
-  .day-cell.other-month { background: #f8f9fc; }
-
-  /* ── COLORED LINES EDITOR ── */
-  .day-editor {
-    flex: 1;
-    padding: 4px 8px 8px;
-    outline: none;
-    font-size: 0.78rem;
-    font-family: inherit;
-    line-height: 1.6;
-    overflow-y: auto;
-    cursor: text;
-    min-height: 0;
-  }
-  .day-editor:empty::before {
-    content: 'Add plan…';
-    color: #c0c0d0;
-    font-style: italic;
-    pointer-events: none;
-  }
-  .day-editor:focus { background: #f0f4ff; border-radius: 0 0 4px 4px; }
-  .day-editor .line { display: block; min-height: 1.6em; white-space: pre-wrap; word-break: break-word; font-weight: 700; }
-
-  .day-cell.other-month .day-editor { display: none; }
-
-  /* ── HOLIDAY LABEL ── */
-  .holiday-label {
-    font-size: 0.6rem;
-    font-weight: 600;
-    color: #e63946;
-    padding: 0 10px 2px;
-    line-height: 1.2;
-    user-select: none;
-  }
-
-  .day-num.holiday { color: #e63946 !important; }
-
-  /* ── MONTH TITLE BAR ── */
-  .month-title-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
-  .month-title-bar h2 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #1a1a2e;
-  }
-  .save-status {
-    font-size: 0.75rem;
-    color: #aaa;
-    font-style: italic;
-  }
-
-  /* ── PRINT / PDF ── */
-  @media print {
-    .topbar, .year-nav, .month-title-bar .save-status { display: none !important; }
-    body { background: #fff; }
-    .calendar-wrapper { padding: 0; max-width: 100%; }
-    .day-cell { min-height: 80px; }
-    .day-editor { font-size: 0.65rem; }
-  }
-
-  /* Applied during PDF export for tight single-page fit */
-  body.pdf-mode { background: #fff; }
-  body.pdf-mode .calendar-wrapper { padding: 4px 8px; max-width: 100%; }
-  body.pdf-mode .month-title-bar { margin-bottom: 4px; }
-  body.pdf-mode .month-title-bar h2 { font-size: 1rem; }
-  body.pdf-mode .day-cell { min-height: 70px; }
-  body.pdf-mode .day-header { padding: 5px 0; font-size: 0.65rem; }
-  body.pdf-mode .day-num { font-size: 0.7rem; padding: 4px 6px 2px; }
-  body.pdf-mode .day-editor { font-size: 0.6rem; padding: 2px 5px 4px; line-height: 1.4; }
-  body.pdf-mode .holiday-label { font-size: 0.5rem; padding: 0 6px 1px; }
-
-  /* PDF logo header (injected temporarily during export) */
-  .pdf-logo-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #1a1a2e;
-    color: #fff;
-    padding: 8px 14px;
-    border-radius: 8px 8px 0 0;
-    margin-bottom: 6px;
-  }
-  .pdf-logo-header .brand { display: flex; align-items: center; gap: 8px; }
-  .pdf-logo-header svg { width: 32px; height: 32px; }
-  .pdf-logo-header .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
-  .pdf-logo-header .brand-text span { font-size: 0.95rem; font-weight: 700; color: #f5a623; letter-spacing: 1px; }
-  .pdf-logo-header .brand-text small { font-size: 0.6rem; color: #aab; }
-  .pdf-logo-header .month-label-pdf { font-size: 1rem; font-weight: 700; color: #fff; }
+body.pdfmode .topbar, body.pdfmode .pills-bar, body.pdfmode .save-badge { display: none !important; }
+body.pdfmode { background: #fff; }
+body.pdfmode .cal-wrap { padding: 4px 8px; max-width: 100%; }
+body.pdfmode .month-bar { margin-bottom: 4px; }
+body.pdfmode .month-bar h2 { font-size: 0.95rem; }
+body.pdfmode .day { min-height: 65px; }
+body.pdfmode .day-hdr { padding: 4px 0; font-size: 0.62rem; }
+body.pdfmode .dnum { font-size: 0.68rem; padding: 3px 6px 2px; }
+body.pdfmode .editor { font-size: 0.58rem; padding: 2px 5px 3px; line-height: 1.35; }
+body.pdfmode .hday-lbl { font-size: 0.48rem; }
 </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
 <div class="topbar">
-  <div class="topbar-brand">
+  <div class="brand">
     <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
       <g fill="#f5a623">
-        <rect x="37" y="2" width="6" height="14" rx="3"></rect>
-        <rect x="37" y="64" width="6" height="14" rx="3"></rect>
-        <rect x="2" y="37" width="14" height="6" rx="3"></rect>
-        <rect x="64" y="37" width="14" height="6" rx="3"></rect>
-        <rect x="14" y="10" width="6" height="14" rx="3" transform="rotate(-45 17 17)"></rect>
-        <rect x="60" y="10" width="6" height="14" rx="3" transform="rotate(45 63 17)"></rect>
-        <rect x="14" y="56" width="6" height="14" rx="3" transform="rotate(45 17 63)"></rect>
-        <rect x="60" y="56" width="6" height="14" rx="3" transform="rotate(-45 63 63)"></rect>
+        <rect x="37" y="2"  width="6" height="14" rx="3"/>
+        <rect x="37" y="64" width="6" height="14" rx="3"/>
+        <rect x="2"  y="37" width="14" height="6"  rx="3"/>
+        <rect x="64" y="37" width="14" height="6"  rx="3"/>
+        <rect x="14" y="10" width="6" height="14" rx="3" transform="rotate(-45 17 17)"/>
+        <rect x="60" y="10" width="6" height="14" rx="3" transform="rotate(45 63 17)"/>
+        <rect x="14" y="56" width="6" height="14" rx="3" transform="rotate(45 17 63)"/>
+        <rect x="60" y="56" width="6" height="14" rx="3" transform="rotate(-45 63 63)"/>
       </g>
-      <circle cx="40" cy="40" r="20" fill="#f5a623"></circle>
-      <circle cx="40" cy="40" r="14" fill="#f0c040"></circle>
+      <circle cx="40" cy="40" r="20" fill="#f5a623"/>
+      <circle cx="40" cy="40" r="14" fill="#f0c040"/>
     </svg>
-    <div class="topbar-brand-text">
-      <span>HELIOS ENERGY</span>
-      <small>Calendar 2026</small>
+    <div>
+      <div class="brand-name">HELIOS ENERGY</div>
+      <div class="brand-sub">Team Calendar</div>
     </div>
   </div>
-  <div class="nav-controls">
-    <button class="btn btn-nav" onclick="changeYear(-1)" title="Prev year">&#171;</button>
-    <button class="btn btn-nav" onclick="changeMonth(-1)">&#8249;</button>
-    <div class="month-label" id="currentMonthLabel"></div>
-    <button class="btn btn-nav" onclick="changeMonth(1)">&#8250;</button>
-    <button class="btn btn-nav" onclick="changeYear(1)" title="Next year">&#187;</button>
-    <button class="btn btn-today" onclick="goToToday()">Today</button>
-    <button class="btn btn-pdf" onclick="exportPDF()">⬇ Save as PDF</button>
+  <div class="nav">
+    <button class="btn btn-nav" onclick="CAL.yr(-1)">&#171;</button>
+    <button class="btn btn-nav" onclick="CAL.mo(-1)">&#8249;</button>
+    <div class="month-lbl" id="mlbl"></div>
+    <button class="btn btn-nav" onclick="CAL.mo(1)">&#8250;</button>
+    <button class="btn btn-nav" onclick="CAL.yr(1)">&#187;</button>
+    <button class="btn btn-today" onclick="CAL.today()">Today</button>
+    <button class="btn btn-pdf"   onclick="CAL.pdf()">&#8595; Save as PDF</button>
   </div>
 </div>
 
-<!-- MONTH PILLS -->
-<div class="year-nav" id="monthPills"></div>
+<div class="pills-bar" id="pills"></div>
 
-<!-- CALENDAR -->
-<div class="calendar-wrapper">
-  <div class="month-title-bar">
-    <h2 id="monthTitle"></h2>
-    <span class="save-status" id="saveStatus"></span>
+<div class="cal-wrap">
+  <div class="month-bar">
+    <h2 id="mtitle"></h2>
+    <span class="save-badge" id="sbadge"></span>
   </div>
-  <div class="calendar-grid" id="calendarGrid"></div>
+  <div class="grid" id="grid"></div>
 </div>
 
 <script>
-  // ── FIREBASE INIT (fail-safe) ──────────────────
-  let db = null;
+var CAL = (function() {
+  var db = null;
   try {
     firebase.initializeApp({
-      apiKey:            "AIzaSyCBCY_5rkm9ihAyjKUxM-mnQqNqDCQM90I",
-      authDomain:        "helios-calendar-99459.firebaseapp.com",
-      projectId:         "helios-calendar-99459",
-      storageBucket:     "helios-calendar-99459.firebasestorage.app",
+      apiKey: "AIzaSyCBCY_5rkm9ihAyjKUxM-mnQqNqDCQM90I",
+      authDomain: "helios-calendar-99459.firebaseapp.com",
+      projectId: "helios-calendar-99459",
+      storageBucket: "helios-calendar-99459.firebasestorage.app",
       messagingSenderId: "955275437358",
-      appId:             "1:955275437358:web:2b227b97d6971da2b506bf"
+      appId: "1:955275437358:web:2b227b97d6971da2b506bf"
     });
     db = firebase.firestore();
-  } catch(e) { console.warn('Firebase unavailable, using localStorage', e); }
+  } catch(e) { console.warn('Firebase failed:', e); }
 
-  const MONTHS = ["January","February","March","April","May","June",
-                  "July","August","September","October","November","December"];
-  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-  // Colors assigned per project name (same name = always same color)
-  const LINE_COLORS = [
-    '#e63946', // red
-    '#4361ee', // blue
-    '#2a9d8f', // teal
-    '#f4a261', // orange
-    '#8338ec', // purple
-    '#06b87a', // green
-    '#e76f51', // coral
-    '#0096c7', // cyan
-  ];
+  var MN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var DN = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var CL = ["#e63946","#4361ee","#2a9d8f","#f4a261","#8338ec","#06b87a","#e76f51","#0096c7"];
+  var HD = {0:{1:"New Year's Day"},1:{16:"Family Day"},3:{3:"Good Friday",6:"Easter Monday"},4:{18:"Victoria Day"},6:{1:"Canada Day",4:"Independence Day"},7:{3:"Civic Holiday"},8:{7:"Labour Day"},9:{12:"Thanksgiving"},10:{11:"Remembrance Day"},11:{25:"Christmas",26:"Boxing Day"}};
 
-  // Hash a project name to a consistent color
-  function nameToColor(name) {
-    const key = name.trim().toLowerCase();
-    if (!key) return '#888';
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) {
-      hash = (hash * 31 + key.charCodeAt(i)) & 0xffffffff;
-    }
-    return LINE_COLORS[Math.abs(hash) % LINE_COLORS.length];
+  var cY = new Date().getFullYear();
+  var cM = new Date().getMonth();
+  var now = new Date();
+
+  function nc(name) {
+    var k = (name||'').trim().toLowerCase();
+    if (!k) return '#999';
+    var h = 0;
+    for (var i=0; i<k.length; i++) h = (h*31 + k.charCodeAt(i))|0;
+    return CL[Math.abs(h) % CL.length];
   }
 
-  // ── 2026 PUBLIC HOLIDAYS (month 0-based, day) ──
-  // Includes US federal holidays + common Canadian holidays
-  const HOLIDAYS = {
-    // [month]: { day: 'Name' }
-    0:  { 1: "New Year's Day" },
-    1:  { 16: "Family Day (BC/AB/ON/SK)" },
-    2:  {},
-    3:  { 3: "Good Friday", 6: "Easter Monday" },
-    4:  { 18: "Victoria Day" },
-    5:  {},
-    6:  { 1: "Canada Day", 4: "Independence Day (US)" },
-    7:  { 3: "Civic Holiday (AB/BC/ON)" },
-    8:  { 7: "Labour Day" },
-    9:  { 12: "Thanksgiving (Canada)", 12: "Columbus Day (US)" },
-    10: { 11: "Remembrance Day / Veterans Day" },
-    11: { 25: "Christmas Day", 26: "Boxing Day" }
-  };
+  function key(y,m,d) { return 'c'+y+'_'+m+'_'+d; }
 
-  let currentYear  = new Date().getFullYear();
-  let currentMonth = new Date().getMonth();
-  const today = new Date();
-
-  // ── FIREBASE STORAGE ─────────────────────────
-  function docId(year, month, day) {
-    return `${year}_${month}_${day}`;
-  }
-
-  function saveNote(year, month, day, lines) {
-    if (db) {
-      db.collection('calendar').doc(docId(year, month, day)).set({ lines });
-    } else {
-      localStorage.setItem(docId(year, month, day), JSON.stringify(lines));
-    }
-    const el = document.getElementById('saveStatus');
-    el.textContent = 'Saved ✓';
+  function save(y,m,d,lines) {
+    if (db) { db.collection('calendar').doc(key(y,m,d)).set({lines:lines}); }
+    else { try{localStorage.setItem(key(y,m,d),JSON.stringify(lines));}catch(e){} }
+    var el=document.getElementById('sbadge');
+    el.textContent='Saved ✓';
     clearTimeout(el._t);
-    el._t = setTimeout(() => el.textContent = '', 1500);
+    el._t=setTimeout(function(){el.textContent='';},1500);
   }
 
-  async function loadNote(year, month, day) {
-    try {
-      if (db) {
-        const doc = await db.collection('calendar').doc(docId(year, month, day)).get();
-        return doc.exists ? (doc.data().lines || []) : [];
-      } else {
-        const raw = localStorage.getItem(docId(year, month, day));
-        return raw ? JSON.parse(raw) : [];
-      }
-    } catch { return []; }
-  }
-
-  // ── COLOR BY PROJECT NAME ─────────────────────
-  function nameToColor(name) {
-    const key = (name || '').trim().toLowerCase();
-    if (!key) return '#999';
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) {
-      hash = (hash * 31 + key.charCodeAt(i)) & 0xffffffff;
+  function load(y,m,d,cb) {
+    if (db) {
+      db.collection('calendar').doc(key(y,m,d)).get()
+        .then(function(doc){cb(doc.exists?(doc.data().lines||[]):[]);})
+        .catch(function(){cb([]);});
+    } else {
+      try{var r=localStorage.getItem(key(y,m,d));cb(r?JSON.parse(r):[]);}
+      catch(e){cb([]);}
     }
-    return LINE_COLORS[Math.abs(hash) % LINE_COLORS.length];
   }
 
-  // ── COLORED LINE EDITOR ───────────────────────
-  function buildEditor(month, day) {
-    const editor = document.createElement('div');
-    editor.className = 'day-editor';
-    editor.contentEditable = true;
-    editor.spellcheck = true;
+  function recolor(el) {
+    Array.from(el.children).forEach(function(c){c.style.color=nc(c.textContent);});
+  }
 
-    // Load from Firebase asynchronously
-    loadNote(currentYear, month, day).then(lines => {
-      editor.innerHTML = '';
-      if (lines.length === 0) {
-        const l = document.createElement('div');
-        l.className = 'line';
-        l.style.color = '#999';
-        l.innerHTML = '<br>';
-        editor.appendChild(l);
-      } else {
-        lines.forEach(text => {
-          const l = document.createElement('div');
-          l.className = 'line';
-          l.style.color = nameToColor(text);
-          l.textContent = text || '';
-          if (!text) l.innerHTML = '<br>';
-          editor.appendChild(l);
+  function mkEditor(m,d) {
+    var el=document.createElement('div');
+    el.className='editor';
+    el.contentEditable='true';
+    load(cY,m,d,function(lines){
+      el.innerHTML='';
+      if(!lines.length){var r=document.createElement('div');r.innerHTML='<br>';el.appendChild(r);}
+      else {
+        lines.forEach(function(t){
+          var r=document.createElement('div');
+          r.style.color=nc(t);
+          if(t){r.textContent=t;}else{r.innerHTML='<br>';}
+          el.appendChild(r);
         });
       }
     });
-
-    editor.addEventListener('input', () => {
-      recolorLines(editor);
-      const lines = Array.from(editor.children).map(l => l.textContent);
-      saveNote(currentYear, month, day, lines);
+    el.addEventListener('input',function(){
+      recolor(el);
+      save(cY,m,d,Array.from(el.children).map(function(c){return c.textContent;}));
     });
-
-    editor.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') setTimeout(() => recolorLines(editor), 0);
-    });
-
-    editor.addEventListener('paste', (e) => {
-      e.preventDefault();
-      const text = e.clipboardData.getData('text/plain');
-      document.execCommand('insertText', false, text);
-    });
-
-    return editor;
+    el.addEventListener('keydown',function(e){if(e.key==='Enter')setTimeout(function(){recolor(el);},0);});
+    el.addEventListener('paste',function(e){e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'));});
+    return el;
   }
 
-  function recolorLines(editor) {
-    Array.from(editor.children).forEach(child => {
-      child.classList.add('line');
-      child.style.color = nameToColor(child.textContent);
-    });
-  }
+  function render(m) {
+    cM=m;
+    document.querySelectorAll('.pill').forEach(function(p,i){p.classList.toggle('active',i===m);});
+    var lbl=MN[m]+' '+cY;
+    document.getElementById('mlbl').textContent=lbl;
+    document.getElementById('mtitle').textContent=lbl;
+    document.title='Helios Calendar — '+lbl;
 
-  // ── RENDER ───────────────────────────────────
-  function render(month) {
-    currentMonth = month;
+    var g=document.getElementById('grid');
+    g.innerHTML='';
+    DN.forEach(function(d){var h=document.createElement('div');h.className='day-hdr';h.textContent=d;g.appendChild(h);});
 
-    document.querySelectorAll('.month-pill').forEach((p, i) => {
-      p.classList.toggle('active', i === month);
-    });
+    var first=new Date(cY,m,1).getDay();
+    var total=new Date(cY,m+1,0).getDate();
+    var prev=new Date(cY,m,0).getDate();
+    var hd=HD[m]||{};
 
-    document.getElementById('monthTitle').textContent = `${MONTHS[month]} ${currentYear}`;
-    document.getElementById('currentMonthLabel').textContent = `${MONTHS[month]} ${currentYear}`;
-
-    const grid = document.getElementById('calendarGrid');
-    grid.innerHTML = '';
-
-    DAYS.forEach(d => {
-      const h = document.createElement('div');
-      h.className = 'day-header';
-      h.textContent = d;
-      grid.appendChild(h);
-    });
-
-    const firstDay    = new Date(currentYear, month, 1).getDay();
-    const daysInMonth = new Date(currentYear, month + 1, 0).getDate();
-    const daysInPrev  = new Date(currentYear, month, 0).getDate();
-    const monthHolidays = HOLIDAYS[month] || {};
-
-    // Leading other-month cells
-    for (let i = 0; i < firstDay; i++) {
-      const cell = document.createElement('div');
-      cell.className = 'day-cell other-month';
-      const num = document.createElement('span');
-      num.className = 'day-num';
-      num.textContent = daysInPrev - firstDay + 1 + i;
-      cell.appendChild(num);
-      grid.appendChild(cell);
+    for(var i=0;i<first;i++){
+      var c=document.createElement('div');c.className='day other';
+      var n=document.createElement('span');n.className='dnum gray';n.textContent=prev-first+1+i;
+      c.appendChild(n);g.appendChild(c);
     }
 
-    // Current month days
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dayOfWeek = (firstDay + d - 1) % 7;
-      const isToday   = (today.getFullYear() === currentYear && today.getMonth() === month && today.getDate() === d);
-      const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-      const holidayName = monthHolidays[d];
-
-      const cell = document.createElement('div');
-      cell.className = 'day-cell' + (isToday ? ' today' : '') + (isWeekend ? ' weekend' : '');
-
-      const num = document.createElement('span');
-      num.className = 'day-num' + (holidayName ? ' holiday' : '');
-      num.textContent = d;
+    for(var d=1;d<=total;d++){
+      var dow=(first+d-1)%7;
+      var isTod=now.getFullYear()===cY&&now.getMonth()===m&&now.getDate()===d;
+      var isWk=dow===0||dow===6;
+      var hname=hd[d];
+      var cell=document.createElement('div');
+      cell.className='day'+(isTod?' itoday':'')+(isWk?' wkend':'');
+      var num=document.createElement('span');
+      num.className='dnum'+(hname||isWk?' red':'');
+      num.textContent=d;
       cell.appendChild(num);
-
-      // Holiday name label
-      if (holidayName) {
-        const hl = document.createElement('div');
-        hl.className = 'holiday-label';
-        hl.textContent = holidayName;
-        cell.appendChild(hl);
-      }
-
-      cell.appendChild(buildEditor(month, d));
-      grid.appendChild(cell);
+      if(hname){var hl=document.createElement('div');hl.className='hday-lbl';hl.textContent=hname;cell.appendChild(hl);}
+      cell.appendChild(mkEditor(m,d));
+      g.appendChild(cell);
     }
 
-    // Trailing cells
-    const total    = firstDay + daysInMonth;
-    const trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
-    for (let i = 1; i <= trailing; i++) {
-      const cell = document.createElement('div');
-      cell.className = 'day-cell other-month';
-      const num = document.createElement('span');
-      num.className = 'day-num';
-      num.textContent = i;
-      cell.appendChild(num);
-      grid.appendChild(cell);
+    var filled=first+total;
+    var trail=filled%7===0?0:7-(filled%7);
+    for(var t=1;t<=trail;t++){
+      var tc=document.createElement('div');tc.className='day other';
+      var tn=document.createElement('span');tn.className='dnum gray';tn.textContent=t;
+      tc.appendChild(tn);g.appendChild(tc);
     }
   }
 
-  // ── MONTH PILLS ──────────────────────────────
   function buildPills() {
-    const container = document.getElementById('monthPills');
-    MONTHS.forEach((m, i) => {
-      const pill = document.createElement('button');
-      pill.className = 'month-pill';
-      pill.textContent = m;
-      pill.onclick = () => render(i);
-      container.appendChild(pill);
+    var bar=document.getElementById('pills');
+    MN.forEach(function(m,i){
+      var p=document.createElement('button');
+      p.className='pill';p.textContent=m;
+      p.onclick=function(){render(i);};
+      bar.appendChild(p);
     });
   }
 
-  // ── NAVIGATION ───────────────────────────────
-  function changeMonth(dir) {
-    let m = currentMonth + dir;
-    if (m < 0)  { currentYear--; m = 11; }
-    if (m > 11) { currentYear++; m = 0; }
-    render(m);
+  function mo(dir){var m=cM+dir;if(m<0){cY--;m=11;}if(m>11){cY++;m=0;}render(m);}
+  function yr(dir){cY+=dir;render(cM);}
+  function today(){cY=now.getFullYear();render(now.getMonth());}
+
+  function pdf() {
+    var mn=MN[cM];
+    var btn=document.querySelector('.btn-pdf');
+    btn.textContent='Generating...';btn.disabled=true;
+    document.body.classList.add('pdfmode');
+
+    var svg='<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">'
+      +'<g fill="#f5a623"><rect x="37" y="2" width="6" height="14" rx="3"/>'
+      +'<rect x="37" y="64" width="6" height="14" rx="3"/>'
+      +'<rect x="2" y="37" width="14" height="6" rx="3"/>'
+      +'<rect x="64" y="37" width="14" height="6" rx="3"/>'
+      +'<rect x="14" y="10" width="6" height="14" rx="3" transform="rotate(-45 17 17)"/>'
+      +'<rect x="60" y="10" width="6" height="14" rx="3" transform="rotate(45 63 17)"/>'
+      +'<rect x="14" y="56" width="6" height="14" rx="3" transform="rotate(45 17 63)"/>'
+      +'<rect x="60" y="56" width="6" height="14" rx="3" transform="rotate(-45 63 63)"/>'
+      +'</g><circle cx="40" cy="40" r="20" fill="#f5a623"/>'
+      +'<circle cx="40" cy="40" r="14" fill="#f0c040"/></svg>';
+
+    var blob=new Blob([svg],{type:'image/svg+xml'});
+    var url=URL.createObjectURL(blob);
+    var img=new Image();
+    img.onload=function(){
+      var cv=document.createElement('canvas');cv.width=80;cv.height=80;
+      cv.getContext('2d').drawImage(img,0,0);
+      URL.revokeObjectURL(url);
+      var logo=cv.toDataURL('image/png');
+      var wrap=document.querySelector('.cal-wrap');
+      var hdr=document.createElement('div');hdr.className='pdf-hdr';
+      hdr.innerHTML='<div class="pb"><img src="'+logo+'"/><div class="pt"><span>HELIOS ENERGY</span><small>Team Calendar '+cY+'</small></div></div>'
+        +'<div class="pm">'+mn+' '+cY+'</div>';
+      wrap.insertBefore(hdr,wrap.firstChild);
+      setTimeout(function(){
+        html2pdf().set({
+          margin:[4,4,4,4],filename:'Calendar_'+mn+'_'+cY+'.pdf',
+          image:{type:'jpeg',quality:0.95},
+          html2canvas:{scale:2,useCORS:true,scrollY:0},
+          jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
+          pagebreak:{mode:'avoid-all'}
+        }).from(wrap).save().then(function(){
+          wrap.removeChild(hdr);
+          document.body.classList.remove('pdfmode');
+          btn.textContent='↓ Save as PDF';btn.disabled=false;
+        });
+      },200);
+    };
+    img.src=url;
   }
 
-  function changeYear(dir) {
-    currentYear += dir;
-    render(currentMonth);
-  }
+  buildPills();
+  render(cM);
 
-  function goToToday() {
-    currentYear = today.getFullYear();
-    render(today.getMonth());
-  }
-
-  // ── PDF EXPORT ───────────────────────────────
-  function exportPDF() {
-    const monthName = MONTHS[currentMonth];
-    const btn = document.querySelector('.btn-pdf');
-    btn.textContent = '⏳ Generating…';
-    btn.disabled = true;
-
-    // Switch to compact mode
-    document.body.classList.add('pdf-mode');
-
-    // Build a temporary wrapper with logo + calendar
-    const wrapper = document.querySelector('.calendar-wrapper');
-
-    // Pre-render SVG logo to a PNG data URL so html2canvas picks it up
-    function svgToDataURL() {
-      return new Promise(resolve => {
-        const svgStr = `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
-          <g fill="#f5a623">
-            <rect x="37" y="2" width="6" height="14" rx="3"/>
-            <rect x="37" y="64" width="6" height="14" rx="3"/>
-            <rect x="2" y="37" width="14" height="6" rx="3"/>
-            <rect x="64" y="37" width="14" height="6" rx="3"/>
-            <rect x="14" y="10" width="6" height="14" rx="3" transform="rotate(-45 17 17)"/>
-            <rect x="60" y="10" width="6" height="14" rx="3" transform="rotate(45 63 17)"/>
-            <rect x="14" y="56" width="6" height="14" rx="3" transform="rotate(45 17 63)"/>
-            <rect x="60" y="56" width="6" height="14" rx="3" transform="rotate(-45 63 63)"/>
-          </g>
-          <circle cx="40" cy="40" r="20" fill="#f5a623"/>
-          <circle cx="40" cy="40" r="14" fill="#f0c040"/>
-        </svg>`;
-        const blob = new Blob([svgStr], { type: 'image/svg+xml' });
-        const url  = URL.createObjectURL(blob);
-        const img  = new Image();
-        img.onload = () => {
+  return {mo:mo,yr:yr,today:today,pdf:pdf};
+})();
+</script>
+</body>
+</html>
